@@ -1,0 +1,17 @@
+<script setup lang="ts">
+import type { HTMLAttributes } from 'vue';
+
+type Props = {
+    className?: HTMLAttributes['class'];
+};
+
+defineProps<Props>();
+</script>
+
+<template>
+    <img
+        src="/images/logo.png"
+        alt="Logo"
+        :class="className"
+    />
+</template>
