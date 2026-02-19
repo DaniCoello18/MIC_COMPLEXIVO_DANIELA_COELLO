@@ -16,30 +16,19 @@ class AlumnoController extends Controller
     }
 
     public function index(Request $request)
-{
-    $search = $request->input('search');
+    {
+        $search = $request->input('search');
 
-    $filters = [];
+        // Ahora solo enviamos un string, no array
+        $alumnos = $this->alumnoService->search($search);
 
-    if ($search) {
-        $filters = [
-            'cedula' => $search,
-            'nombre' => $search,
-            'apellido' => $search,
-            'correo' => $search,
-        ];
+        return Inertia::render('Alumnos/Index', [
+            'alumnos' => $alumnos ?? [],
+            'filters' => [
+                'search' => $search
+            ]
+        ]);
     }
-
-    $alumnos = $this->alumnoService->search($filters);
-
-    return Inertia::render('Alumnos/Index', [
-        'alumnos' => $alumnos ?? [],
-        'filters' => [
-            'search' => $search
-        ]
-    ]);
-}
-
 
     public function store(Request $request)
     {
@@ -51,6 +40,7 @@ class AlumnoController extends Controller
     public function update(Request $request, $id)
     {
         $this->alumnoService->update($id, $request->all());
+        
 
         return redirect()->route('alumnos.index');
     }

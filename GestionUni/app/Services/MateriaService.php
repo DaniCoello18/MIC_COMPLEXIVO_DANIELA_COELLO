@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 
 class MateriaService
 {
@@ -13,61 +14,46 @@ class MateriaService
         $this->baseUrl = config('services.node_api.url');
     }
 
-    // GET /materias
     public function getAll()
     {
         return Http::get("{$this->baseUrl}/materias")->json();
     }
 
-    // GET /materias/{id}
-    public function getById($id)
+    // Corregido para usar el parámetro 'q'
+    public function search(array $filters)
     {
-        return Http::get("{$this->baseUrl}/materias/{$id}")->json();
+        if (!empty($filters['search'])) {
+            return Http::get("{$this->baseUrl}/materias/search", [
+                'q' => $filters['search']
+            ])->json();
+        }
+        return $this->getAll();
     }
 
-    // POST /materias
     public function create(array $data)
     {
         $response = Http::post("{$this->baseUrl}/materias", $data);
-
-        if ($response->status() === 422) {
-            $errors = [];
-            foreach ($response->json()['errors'] ?? [] as $error) {
-                $field = $error['path'] ?? null;
-                $message = $error['msg'] ?? 'Error de validación';
-                if ($field) {
-                    $errors[$field][] = $message;
-                }
-            }
-            throw \Illuminate\Validation\ValidationException::withMessages($errors);
-        }
-
+        
         if ($response->failed()) {
-            abort($response->status(), $response->json()['message'] ?? 'Error en la API');
+            throw ValidationException::withMessages($response->json()['errors'] ?? ['error' => 'Error al crear materia']);
         }
 
         return $response->json();
     }
 
-    // PUT /materias/{id}
     public function update($id, array $data)
     {
-        return Http::put("{$this->baseUrl}/materias/{$id}", $data)->json();
+        $response = Http::put("{$this->baseUrl}/materias/{$id}", $data);
+        
+        if ($response->failed()) {
+            throw ValidationException::withMessages($response->json()['errors'] ?? ['error' => 'Error al actualizar materia']);
+        }
+
+        return $response->json();
     }
 
-    // DELETE /materias/{id}
     public function delete($id)
     {
         return Http::delete("{$this->baseUrl}/materias/{$id}")->json();
-    }
-
-    // GET /materias/search
-    public function search(array $filters)
-    {
-        $filters = array_filter($filters);
-        if (empty($filters)) {
-            return $this->getAll();
-        }
-        return Http::get("{$this->baseUrl}/materias/search", $filters)->json();
     }
 }

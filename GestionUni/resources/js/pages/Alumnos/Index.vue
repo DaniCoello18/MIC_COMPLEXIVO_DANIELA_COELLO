@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3'
+import { Head, useForm, router } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { type BreadcrumbItem } from '@/types'
 
 interface Alumno {
@@ -22,9 +22,21 @@ const props = defineProps<{
 }>()
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Alumnos', href: '/alumnos' }
+    { title: 'Gestión de Alumnos', href: '/alumnos' }
 ]
 
+// --- BÚSQUEDA REACTIVA ---
+const search = ref(props.filters?.search ?? '')
+
+watch(search, (value) => {
+    router.get('/alumnos', { search: value }, {
+        preserveState: true,
+        replace: true,
+        preserveScroll: true
+    })
+})
+
+// --- CRUD: CREAR ---
 const form = useForm({
     cedula: '',
     nombre: '',
@@ -40,6 +52,7 @@ const submit = () => {
     })
 }
 
+// --- CRUD: EDITAR ---
 const editForm = useForm({
     id: 0,
     cedula: '',
@@ -54,11 +67,27 @@ const showEditModal = ref(false)
 
 const startEdit = (alumno: Alumno) => {
     editForm.clearErrors()
-    Object.assign(editForm, alumno)
+    
+    // TRATAMIENTO DE FECHA: MySQL error 1292 (ER_TRUNCATED_WRONG_VALUE)
+    // El input type="date" necesita YYYY-MM-DD. Si viene de la DB como ISO, lo limpiamos.
+    const fechaLimpia = alumno.fecha_nacimiento ? alumno.fecha_nacimiento.split('T')[0] : ''
+
+    editForm.id = alumno.id
+    editForm.cedula = alumno.cedula
+    editForm.nombre = alumno.nombre
+    editForm.apellido = alumno.apellido
+    editForm.fecha_nacimiento = fechaLimpia
+    editForm.direccion = alumno.direccion
+    editForm.correo = alumno.correo
     showEditModal.value = true
 }
 
 const update = () => {
+    // Aseguramos que la fecha enviada sea solo YYYY-MM-DD
+    if (editForm.fecha_nacimiento && editForm.fecha_nacimiento.includes('T')) {
+        editForm.fecha_nacimiento = editForm.fecha_nacimiento.split('T')[0]
+    }
+
     editForm.put(`/alumnos/${editForm.id}`, {
         onSuccess: () => {
             showEditModal.value = false
@@ -67,26 +96,11 @@ const update = () => {
     })
 }
 
+// --- CRUD: ELIMINAR ---
 const eliminar = (id: number) => {
-    if (confirm('¿Eliminar alumno?')) {
-        editForm.delete(`/alumnos/${id}`)
+    if (confirm('¿Estás seguro de eliminar este alumno?')) {
+        router.delete(`/alumnos/${id}`)
     }
-}
-
-const searchForm = useForm({
-    search: props.filters?.search ?? ''
-})
-
-const buscar = () => {
-    searchForm.get('/alumnos', {
-        preserveState: true,
-        replace: true
-    })
-}
-
-const limpiarBusqueda = () => {
-    searchForm.reset()
-    searchForm.get('/alumnos', { replace: true })
 }
 </script>
 
@@ -94,160 +108,141 @@ const limpiarBusqueda = () => {
     <Head title="Alumnos" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="p-6 space-y-8">
-
-            <div class="bg-white p-4 rounded shadow">
-                <h2 class="text-lg font-bold mb-4">Nuevo Alumno</h2>
-
-                <form @submit.prevent="submit" class="grid grid-cols-2 gap-4">
-                    <div>
-                        <input v-model="form.cedula" placeholder="Cédula" class="border p-2 rounded w-full" />
-                        <div v-if="form.errors.cedula" class="text-red-500 text-sm">
-                            {{ form.errors.cedula }}
-                        </div>
-                    </div>
-
-                    <div>
-                        <input v-model="form.nombre" placeholder="Nombre" class="border p-2 rounded w-full" />
-                        <div v-if="form.errors.nombre" class="text-red-500 text-sm">
-                            {{ form.errors.nombre }}
-                        </div>
-                    </div>
-
-                    <div>
-                        <input v-model="form.apellido" placeholder="Apellido" class="border p-2 rounded w-full" />
-                        <div v-if="form.errors.apellido" class="text-red-500 text-sm">
-                            {{ form.errors.apellido }}
-                        </div>
-                    </div>
-
-                    <div>
-                        <input type="date" v-model="form.fecha_nacimiento" class="border p-2 rounded w-full" />
-                    </div>
-
-                    <div>
-                        <input v-model="form.direccion" placeholder="Dirección" class="border p-2 rounded w-full" />
-                    </div>
-
-                    <div>
-                        <input v-model="form.correo" placeholder="Correo" class="border p-2 rounded w-full" />
-                        <div v-if="form.errors.correo" class="text-red-500 text-sm">
-                            {{ form.errors.correo }}
-                        </div>
-                    </div>
-
-                    <button type="submit"
-                        class="col-span-2 bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
-                        :disabled="form.processing">
-                        Guardar
-                    </button>
-                </form>
-            </div>
-
-            <div class="bg-white p-4 rounded shadow">
-                <h2 class="text-lg font-bold mb-4">Buscar</h2>
-
-                <div class="flex gap-4">
+        <div class="p-6 space-y-6 max-w-7xl mx-auto">
+            
+            <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </span>
                     <input
-                        v-model="searchForm.search"
-                        @input="buscar"
-                        placeholder="Buscar..."
-                        class="border p-2 rounded w-full"
+                        v-model="search"
+                        type="text"
+                        placeholder="Escribe para filtrar por nombre, cédula o correo..."
+                        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                     />
-
-                    <button
-                        @click="limpiarBusqueda"
-                        class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
-                        Limpiar
-                    </button>
                 </div>
             </div>
 
-            <div class="bg-white p-4 rounded shadow">
-                <h2 class="text-lg font-bold mb-4">Lista de Alumnos</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="md:col-span-1 bg-white p-6 rounded-lg shadow border border-gray-200 h-fit">
+                    <h2 class="text-xl font-bold mb-4 text-gray-700">Nuevo Alumno</h2>
+                    <form @submit.prevent="submit" class="space-y-4">
+                        <div>
+                            <input v-model="form.cedula" placeholder="Cédula (10 dígitos)" :class="{'border-red-500 ring-1 ring-red-200': form.errors.cedula}" class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+                            <p v-if="form.errors.cedula" class="text-red-500 text-xs mt-1 font-semibold">{{ form.errors.cedula }}</p>
+                        </div>
 
-                <table class="w-full border">
-                    <thead>
-                        <tr class="bg-gray-200">
-                            <th class="p-2 border">Cédula</th>
-                            <th class="p-2 border">Nombre</th>
-                            <th class="p-2 border">Apellido</th>
-                            <th class="p-2 border">Correo</th>
-                            <th class="p-2 border">Acciones</th>
-                        </tr>
-                    </thead>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <input v-model="form.nombre" placeholder="Nombre" :class="{'border-red-500': form.errors.nombre}" class="w-full border p-2 rounded outline-none" />
+                                <p v-if="form.errors.nombre" class="text-red-500 text-xs mt-1">{{ form.errors.nombre }}</p>
+                            </div>
+                            <div>
+                                <input v-model="form.apellido" placeholder="Apellido" :class="{'border-red-500': form.errors.apellido}" class="w-full border p-2 rounded outline-none" />
+                                <p v-if="form.errors.apellido" class="text-red-500 text-xs mt-1">{{ form.errors.apellido }}</p>
+                            </div>
+                        </div>
 
-                    <tbody>
-                        <tr v-for="al in alumnos" :key="al.id">
-                            <td class="border p-2">{{ al.cedula }}</td>
-                            <td class="border p-2">{{ al.nombre }}</td>
-                            <td class="border p-2">{{ al.apellido }}</td>
-                            <td class="border p-2">{{ al.correo }}</td>
-                            <td class="border p-2 space-x-2">
-                                <button @click="startEdit(al)"
-                                    class="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600">
-                                    Editar
-                                </button>
+                        <input type="date" v-model="form.fecha_nacimiento" class="w-full border p-2 rounded text-gray-600 outline-none" />
+                        
+                        <div>
+                            <input v-model="form.direccion" placeholder="Dirección" class="w-full border p-2 rounded outline-none" />
+                            <p v-if="form.errors.direccion" class="text-red-500 text-xs mt-1">{{ form.errors.direccion }}</p>
+                        </div>
 
-                                <button @click="eliminar(al.id)"
-                                    class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
-                                    Eliminar
-                                </button>
-                            </td>
-                        </tr>
+                        <div>
+                            <input v-model="form.correo" placeholder="Correo electrónico" :class="{'border-red-500': form.errors.correo}" class="w-full border p-2 rounded outline-none" />
+                            <p v-if="form.errors.correo" class="text-red-500 text-xs mt-1">{{ form.errors.correo }}</p>
+                        </div>
 
-                        <tr v-if="alumnos.length === 0">
-                            <td colspan="5" class="text-center p-4">
-                                No hay resultados
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                        <button type="submit" :disabled="form.processing" class="w-full bg-blue-600 text-white p-2 rounded font-semibold hover:bg-blue-700 transition disabled:opacity-50 shadow-md shadow-blue-100">
+                            {{ form.processing ? 'Procesando...' : 'Registrar Alumno' }}
+                        </button>
+                    </form>
+                </div>
+
+                <div class="md:col-span-2 bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-4 py-3 text-sm font-bold text-gray-600">Alumno</th>
+                                <th class="px-4 py-3 text-sm font-bold text-gray-600">Cédula</th>
+                                <th class="px-4 py-3 text-sm font-bold text-gray-600">Dirección</th>
+                                <th class="px-4 py-3 text-sm font-bold text-gray-600 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr v-for="al in alumnos" :key="al.id" class="hover:bg-gray-50 transition">
+                                <td class="px-4 py-3">
+                                    <div class="font-bold text-gray-900 text-sm">{{ al.nombre }} {{ al.apellido }}</div>
+                                    <div class="text-xs text-gray-500">{{ al.correo }}</div>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-gray-600">{{ al.cedula }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-600">{{ al.direccion || '—' }}</td>
+                                <td class="px-4 py-3 text-right space-x-3">
+                                    <button @click="startEdit(al)" class="text-blue-600 hover:text-blue-800 font-bold text-xs uppercase">Editar</button>
+                                    <button @click="eliminar(al.id)" class="text-red-600 hover:text-red-800 font-bold text-xs uppercase">Eliminar</button>
+                                </td>
+                            </tr>
+                            <tr v-if="alumnos.length === 0">
+                                <td colspan="4" class="px-4 py-10 text-center text-gray-400 italic">
+                                    No se encontraron alumnos registrados.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
-            <div v-if="showEditModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                <div class="bg-white p-6 rounded shadow w-96 space-y-4">
-                    <h2 class="text-lg font-bold">Editar Alumno</h2>
+            <div v-if="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+                <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                    <div class="p-6 space-y-4">
+                        <h2 class="text-xl font-bold text-gray-800 border-b pb-2">Actualizar Datos</h2>
+                        
+                        <div class="space-y-3">
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-400 uppercase">Cédula</label>
+                                <input v-model="editForm.cedula" :class="{'border-red-500': editForm.errors.cedula}" class="w-full border p-2 rounded text-sm mt-1" />
+                                <p v-if="editForm.errors.cedula" class="text-red-500 text-xs mt-1">{{ editForm.errors.cedula }}</p>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-[10px] font-bold text-gray-400 uppercase">Nombre</label>
+                                    <input v-model="editForm.nombre" :class="{'border-red-500': editForm.errors.nombre}" class="w-full border p-2 rounded text-sm mt-1" />
+                                    <p v-if="editForm.errors.nombre" class="text-red-500 text-xs mt-1">{{ editForm.errors.nombre }}</p>
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-bold text-gray-400 uppercase">Apellido</label>
+                                    <input v-model="editForm.apellido" :class="{'border-red-500': editForm.errors.apellido}" class="w-full border p-2 rounded text-sm mt-1" />
+                                    <p v-if="editForm.errors.apellido" class="text-red-500 text-xs mt-1">{{ editForm.errors.apellido }}</p>
+                                </div>
+                            </div>
 
-                    <div>
-                        <input v-model="editForm.cedula" class="border p-2 rounded w-full" />
-                        <div v-if="editForm.errors.cedula" class="text-red-500 text-sm">
-                            {{ editForm.errors.cedula }}
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-400 uppercase">Fecha de Nacimiento</label>
+                                <input type="date" v-model="editForm.fecha_nacimiento" class="w-full border p-2 rounded text-sm mt-1 text-gray-600" />
+                            </div>
+
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-400 uppercase">Dirección</label>
+                                <input v-model="editForm.direccion" class="w-full border p-2 rounded text-sm mt-1" />
+                            </div>
+
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-400 uppercase">Correo</label>
+                                <input v-model="editForm.correo" :class="{'border-red-500': editForm.errors.correo}" class="w-full border p-2 rounded text-sm mt-1" />
+                                <p v-if="editForm.errors.correo" class="text-red-500 text-xs mt-1">{{ editForm.errors.correo }}</p>
+                            </div>
                         </div>
-                    </div>
 
-                    <div>
-                        <input v-model="editForm.nombre" class="border p-2 rounded w-full" />
-                        <div v-if="editForm.errors.nombre" class="text-red-500 text-sm">
-                            {{ editForm.errors.nombre }}
+                        <div class="flex justify-end gap-3 mt-6">
+                            <button @click="showEditModal = false" class="px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded">CANCELAR</button>
+                            <button @click="update" :disabled="editForm.processing" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 shadow-lg shadow-blue-200 transition">
+                                {{ editForm.processing ? 'GUARDANDO...' : 'ACTUALIZAR ALUMNO' }}
+                            </button>
                         </div>
-                    </div>
-
-                    <div>
-                        <input v-model="editForm.apellido" class="border p-2 rounded w-full" />
-                        <div v-if="editForm.errors.apellido" class="text-red-500 text-sm">
-                            {{ editForm.errors.apellido }}
-                        </div>
-                    </div>
-
-                    <div>
-                        <input v-model="editForm.correo" class="border p-2 rounded w-full" />
-                        <div v-if="editForm.errors.correo" class="text-red-500 text-sm">
-                            {{ editForm.errors.correo }}
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end gap-2">
-                        <button @click="showEditModal = false"
-                            class="bg-gray-500 text-white px-4 py-2 rounded">
-                            Cancelar
-                        </button>
-
-                        <button @click="update"
-                            class="bg-blue-500 text-white px-4 py-2 rounded"
-                            :disabled="editForm.processing">
-                            Actualizar
-                        </button>
                     </div>
                 </div>
             </div>

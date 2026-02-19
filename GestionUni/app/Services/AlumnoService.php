@@ -66,17 +66,15 @@ public function create(array $data)
     }
 
     // GET /alumnos/search?nombre=...
-    public function search(array $filters)
+    public function search(?string $q = null)
     {
-        // Eliminar valores vacíos
-        $filters = array_filter($filters);
-
-        // Si no hay filtros → traer todos
-        if (empty($filters)) {
+        // Si no hay búsqueda → traer todos
+        if (!$q) {
             return $this->getAll();
         }
 
-        // Si hay filtros → llamar a /search
-        return Http::get("{$this->baseUrl}/alumnos/search", $filters)->json();
+        return Http::get("{$this->baseUrl}/alumnos/search", [
+            'q' => $q
+        ])->json();
     }
 }

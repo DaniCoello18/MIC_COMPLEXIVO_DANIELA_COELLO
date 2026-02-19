@@ -18,11 +18,9 @@ class EspecialidadController extends Controller
     public function index(Request $request)
     {
         $search = $request->input('search');
-        $filters = [];
-        if ($search) {
-            $filters['search'] = $search;
-        }
-        $especialidades = $this->especialidadService->search($filters);
+        
+        // Llamamos al search del service que ya maneja si hay o no filtro
+        $especialidades = $this->especialidadService->search(['search' => $search]);
 
         return Inertia::render('Especialidades/Index', [
             'especialidades' => $especialidades ?? [],
@@ -32,6 +30,12 @@ class EspecialidadController extends Controller
 
     public function store(Request $request)
     {
+        // Validamos en Laravel primero para ahorrarle trabajo al servicio
+        $request->validate([
+            'codigo' => 'required',
+            'nombre' => 'required'
+        ]);
+
         $this->especialidadService->create($request->all());
         return redirect()->route('especialidades.index');
     }

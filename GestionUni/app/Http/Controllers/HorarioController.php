@@ -3,29 +3,35 @@
 namespace App\Http\Controllers;
 
 use App\Services\HorarioService;
+use App\Services\MateriaService;
+use App\Services\EdificioService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class HorarioController extends Controller
 {
     protected HorarioService $horarioService;
+    protected MateriaService $materiaService;
+    protected EdificioService $edificioService;
 
-    public function __construct(HorarioService $horarioService)
-    {
+    public function __construct(
+        HorarioService $horarioService,
+        MateriaService $materiaService,
+        EdificioService $edificioService
+    ) {
         $this->horarioService = $horarioService;
+        $this->materiaService = $materiaService;
+        $this->edificioService = $edificioService;
     }
 
     public function index(Request $request)
     {
         $search = $request->input('search');
-        $filters = [];
-        if ($search) {
-            $filters['search'] = $search;
-        }
-        $horarios = $this->horarioService->search($filters);
-
+        
         return Inertia::render('Horarios/Index', [
-            'horarios' => $horarios ?? [],
+            'horarios' => $this->horarioService->search(['search' => $search]) ?? [],
+            'materias' => $this->materiaService->getAll() ?? [],
+            'edificios' => $this->edificioService->getAll() ?? [],
             'filters' => ['search' => $search],
         ]);
     }

@@ -18,11 +18,7 @@ class EdificioController extends Controller
     public function index(Request $request)
     {
         $search = $request->input('search');
-        $filters = [];
-        if ($search) {
-            $filters['search'] = $search;
-        }
-        $edificios = $this->edificioService->search($filters);
+        $edificios = $this->edificioService->search(['search' => $search]);
 
         return Inertia::render('Edificios/Index', [
             'edificios' => $edificios ?? [],
