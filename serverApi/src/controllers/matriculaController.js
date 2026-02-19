@@ -71,23 +71,33 @@ exports.delete = (req, res) => {
 };
 
 // Búsqueda inteligente de matrículas
+// Buscar matriculas con un solo parámetro (q)
 exports.search = (req, res) => {
-    const { codigo } = req.query;
-    const conditions = [];
-    const params = [];
+    const { q } = req.query;
 
-    if (codigo) {
-        conditions.push('codigo LIKE ?');
-        params.push(`%${codigo}%`);
+    if (!q) {
+        return res.status(400).json({
+            message: 'Debe enviar un valor de búsqueda'
+        });
     }
 
-    if (conditions.length === 0) {
-        return res.status(400).json({ message: 'Se requiere al menos un criterio de búsqueda' });
-    }
+    const sql = `
+        SELECT * FROM matriculas
+        WHERE codigo LIKE ?
+        OR periodo LIKE ?
+        OR estado LIKE ?
+        OR CAST(alumno_id AS CHAR) LIKE ?
+        OR CAST(materia_id AS CHAR) LIKE ?
+    `;
 
-    const sql = `SELECT * FROM matriculas WHERE ${conditions.join(' OR ')}`;
-    db.query(sql, params, (err, results) => {
-        if (err) return res.status(500).json(err);
-        res.json(results);
-    });
+    const searchValue = `%${q}%`;
+
+    db.query(
+        sql,
+        [searchValue, searchValue, searchValue, searchValue, searchValue],
+        (err, results) => {
+            if (err) return res.status(500).json(err);
+            res.json(results);
+        }
+    );
 };

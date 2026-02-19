@@ -91,28 +91,29 @@ exports.delete = (req, res) => {
 
 
 // Buscar especialidades por criterios inteligentes
+// Buscar especialidades con un solo campo (q)
 exports.search = (req, res) => {
-    const { codigo, nombre } = req.query;
+    const { q } = req.query;
 
-    const conditions = [];
-    const params = [];
-
-    if (codigo) {
-        conditions.push('codigo LIKE ?');
-        params.push(`%${codigo}%`);
-    }
-    if (nombre) {
-        conditions.push('nombre LIKE ?');
-        params.push(`%${nombre}%`);
-    }
-    if (conditions.length === 0) {
-        return res.status(400).json({ message: 'Se requiere al menos un criterio de búsqueda' });
+    if (!q) {
+        return res.status(400).json({
+            message: 'Debe enviar un valor de búsqueda'
+        });
     }
 
-    const sql = `SELECT * FROM especialidades WHERE ${conditions.join(' OR ')}`;
+    const sql = `
+        SELECT * FROM especialidades
+        WHERE codigo LIKE ?
+        OR nombre LIKE ?
+    `;
 
-    db.query(sql, params, (err, results) => {
-        if (err) return res.status(500).json(err);
-        res.json(results);
-    });
+    db.query(
+        sql,
+        [`%${q}%`, `%${q}%`],
+        (err, results) => {
+            if (err) return res.status(500).json(err);
+            res.json(results);
+        }
+    );
 };
+

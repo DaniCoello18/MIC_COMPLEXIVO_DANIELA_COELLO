@@ -71,35 +71,32 @@ exports.delete = (req, res) => {
 };
 
 // Búsqueda inteligente de profesores
+// Buscar profesores con un solo parámetro (q)
 exports.search = (req, res) => {
-    const { cedula, nombre, apellido, correo } = req.query;
-    const conditions = [];
-    const params = [];
+    const { q } = req.query;
 
-    if (cedula) {
-        conditions.push('cedula LIKE ?');
-        params.push(`%${cedula}%`);
-    }
-    if (nombre) {
-        conditions.push('nombre LIKE ?');
-        params.push(`%${nombre}%`);
-    }
-    if (apellido) {
-        conditions.push('apellido LIKE ?');
-        params.push(`%${apellido}%`);
-    }
-    if (correo) {
-        conditions.push('correo LIKE ?');
-        params.push(`%${correo}%`);
+    if (!q) {
+        return res.status(400).json({
+            message: 'Debe enviar un valor de búsqueda'
+        });
     }
 
-    if (conditions.length === 0) {
-        return res.status(400).json({ message: 'Se requiere al menos un criterio de búsqueda' });
-    }
+    const sql = `
+        SELECT * FROM profesores
+        WHERE cedula LIKE ?
+        OR nombre LIKE ?
+        OR apellido LIKE ?
+        OR correo LIKE ?
+    `;
 
-    const sql = `SELECT * FROM profesores WHERE ${conditions.join(' OR ')}`;
-    db.query(sql, params, (err, results) => {
-        if (err) return res.status(500).json(err);
-        res.json(results);
-    });
+    const searchValue = `%${q}%`;
+
+    db.query(
+        sql,
+        [searchValue, searchValue, searchValue, searchValue],
+        (err, results) => {
+            if (err) return res.status(500).json(err);
+            res.json(results);
+        }
+    );
 };

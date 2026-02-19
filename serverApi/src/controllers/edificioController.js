@@ -70,31 +70,32 @@ exports.delete = (req, res) => {
 };
 
 // Búsqueda inteligente de edificios
+// Buscar edificios con un solo campo (q)
 exports.search = (req, res) => {
-    const { codigo, nombre, direccion } = req.query;
-    const conditions = [];
-    const params = [];
+    const { q } = req.query;
 
-    if (codigo) {
-        conditions.push('codigo LIKE ?');
-        params.push(`%${codigo}%`);
-    }
-    if (nombre) {
-        conditions.push('nombre LIKE ?');
-        params.push(`%${nombre}%`);
-    }
-    if (direccion) {
-        conditions.push('direccion LIKE ?');
-        params.push(`%${direccion}%`);
+    if (!q) {
+        return res.status(400).json({
+            message: 'Debe enviar un valor de búsqueda'
+        });
     }
 
-    if (conditions.length === 0) {
-        return res.status(400).json({ message: 'Se requiere al menos un criterio de búsqueda' });
-    }
+    const sql = `
+        SELECT * FROM edificios
+        WHERE codigo LIKE ?
+        OR nombre LIKE ?
+        OR direccion LIKE ?
+    `;
 
-    const sql = `SELECT * FROM edificios WHERE ${conditions.join(' OR ')}`;
-    db.query(sql, params, (err, results) => {
-        if (err) return res.status(500).json(err);
-        res.json(results);
-    });
+    const searchValue = `%${q}%`;
+
+    db.query(
+        sql,
+        [searchValue, searchValue, searchValue],
+        (err, results) => {
+            if (err) return res.status(500).json(err);
+            res.json(results);
+        }
+    );
 };
+

@@ -79,27 +79,32 @@ exports.delete = (req, res) => {
 };
 
 // Búsqueda inteligente de horarios
+// Buscar horarios en todos los campos relevantes
 exports.search = (req, res) => {
-    const { codigo, dia_semana } = req.query;
-    const conditions = [];
-    const params = [];
+    const { q } = req.query;
 
-    if (codigo) {
-        conditions.push('codigo LIKE ?');
-        params.push(`%${codigo}%`);
-    }
-    if (dia_semana) {
-        conditions.push('dia_semana LIKE ?');
-        params.push(`%${dia_semana}%`);
+    if (!q) {
+        return res.status(400).json({
+            message: 'Debe enviar un valor de búsqueda'
+        });
     }
 
-    if (conditions.length === 0) {
-        return res.status(400).json({ message: 'Se requiere al menos un criterio de búsqueda' });
-    }
+    const sql = `
+        SELECT * FROM horarios
+        WHERE codigo LIKE ?
+        OR dia_semana LIKE ?
+        OR hora_inicio LIKE ?
+        OR duracion LIKE ?
+    `;
 
-    const sql = `SELECT * FROM horarios WHERE ${conditions.join(' OR ')}`;
-    db.query(sql, params, (err, results) => {
-        if (err) return res.status(500).json(err);
-        res.json(results);
-    });
+    const searchValue = `%${q}%`;
+
+    db.query(
+        sql,
+        [searchValue, searchValue, searchValue, searchValue],
+        (err, results) => {
+            if (err) return res.status(500).json(err);
+            res.json(results);
+        }
+    );
 };
